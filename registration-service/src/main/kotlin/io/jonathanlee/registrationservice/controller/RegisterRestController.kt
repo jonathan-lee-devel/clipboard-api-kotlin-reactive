@@ -3,6 +3,7 @@ package io.jonathanlee.registrationservice.controller
 import io.jonathanlee.registrationservice.dto.request.RegistrationDto
 import io.jonathanlee.registrationservice.dto.response.RegistrationStatusDto
 import io.jonathanlee.registrationservice.enums.RegistrationStatus
+import io.jonathanlee.registrationservice.service.RegistrationService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -14,7 +15,7 @@ import javax.validation.Valid
 
 @RequestMapping("/register")
 @RestController
-class RegisterRestController {
+class RegisterRestController(private val registrationService: RegistrationService) {
 
     val log: Logger = LoggerFactory.getLogger(RegisterRestController::class.java)
 
@@ -24,10 +25,22 @@ class RegisterRestController {
     )
     @ResponseStatus(HttpStatus.OK)
     fun register(@Valid @RequestBody registrationDto: Mono<RegistrationDto>): Mono<ResponseEntity<RegistrationStatusDto>> {
-        return registrationDto.map {
-            println(it.email)
-            return@map ResponseEntity.status(HttpStatus.OK)
-                .body(RegistrationStatusDto(RegistrationStatus.SUCCESS))
+        return this.registrationService.registerUser(registrationDto).map {
+            return@map when (it.registrationStatus) {
+                RegistrationStatus.SUCCESS,
+                RegistrationStatus.AWAITING_EMAIL_VERIFICATION -> ResponseEntity.status(HttpStatus.OK).body(it)
+
+                RegistrationStatus.USER_ALREADY_EXISTS -> ResponseEntity.status(HttpStatus.CONFLICT).body(it)
+                
+                RegistrationStatus.INVALID_TOKEN,
+                RegistrationStatus.EMAIL_VERIFICATION_EXPIRED,
+                RegistrationStatus.PASSWORDS_DO_NOT_MATCH -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(it)
+
+                else -> {
+                    log.error("Internal server error at POST /register")
+                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(it)
+                }
+            }
         }
     }
 
