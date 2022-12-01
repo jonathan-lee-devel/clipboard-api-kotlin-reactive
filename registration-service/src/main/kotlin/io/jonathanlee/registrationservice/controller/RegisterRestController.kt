@@ -31,17 +31,23 @@ class RegisterRestController(private val registrationService: RegistrationServic
                 RegistrationStatus.AWAITING_EMAIL_VERIFICATION -> ResponseEntity.status(HttpStatus.OK).body(it)
 
                 RegistrationStatus.USER_ALREADY_EXISTS -> ResponseEntity.status(HttpStatus.CONFLICT).body(it)
-                
+
                 RegistrationStatus.INVALID_TOKEN,
                 RegistrationStatus.EMAIL_VERIFICATION_EXPIRED,
                 RegistrationStatus.PASSWORDS_DO_NOT_MATCH -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(it)
 
                 else -> {
-                    log.error("Internal server error at POST /register")
+                    log.error("Internal server error with non-empty mono at POST /register")
                     ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(it)
                 }
             }
-        }
+        }.switchIfEmpty(Mono.defer {
+            log.error("Internal server error caused by empty mono at POST /register")
+            return@defer Mono.just(
+                ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(RegistrationStatusDto(RegistrationStatus.FAILURE))
+            )
+        })
     }
 
 }

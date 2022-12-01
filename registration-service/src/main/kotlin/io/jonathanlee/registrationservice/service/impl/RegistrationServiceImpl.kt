@@ -12,7 +12,16 @@ import reactor.core.publisher.Mono
 class RegistrationServiceImpl(private val userService: UserService) : RegistrationService {
 
     override fun registerUser(registrationDto: Mono<RegistrationDto>): Mono<RegistrationStatusDto> {
-        return Mono.just(RegistrationStatusDto(RegistrationStatus.SUCCESS))
+        val user = registrationDto.flatMap {
+            return@flatMap this.userService.findByUsername(Mono.just(it.email))
+        }
+
+        return user.map {
+            println(it.username)
+            return@map RegistrationStatusDto(RegistrationStatus.SUCCESS)
+        }.switchIfEmpty(Mono.defer {
+            return@defer Mono.just(RegistrationStatusDto(RegistrationStatus.FAILURE))
+        })
     }
 
 }

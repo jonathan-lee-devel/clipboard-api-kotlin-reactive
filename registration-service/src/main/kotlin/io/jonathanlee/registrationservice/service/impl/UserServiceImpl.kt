@@ -8,6 +8,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class UserServiceImpl(private val userRepository: UserRepository) : UserService {
+
     override fun findByUsername(username: Mono<String>): Mono<User> {
         return this.userRepository.findByUsername(username)
     }
